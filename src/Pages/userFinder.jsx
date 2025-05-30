@@ -69,6 +69,52 @@ const UserFinder = () => {
     setError(null)
   }
 
+  const handleRandomSearch = async () => {
+    setLoadingSuggestions(true);
+    setError(null);
+    setUserData(null); // Clear previous user data
+    setSuggestedUserName([]); // Clear suggestions
+
+    let foundUser = false;
+    for (let i = 0; i < 3; i++) { // Retry up to 3 times
+      try {
+        const randomSinceId = Math.floor(Math.random() * 100000000) + 1;
+        const listRes = await fetch(`https://api.github.com/users?since=${randomSinceId}&per_page=1`);
+
+        if (listRes.ok) {
+          const usersArray = await listRes.json();
+          if (usersArray && usersArray.length > 0) {
+            const randomUserFromList = usersArray[0];
+            if (randomUserFromList && randomUserFromList.login) {
+              // Now fetch the full profile of this user
+              const userProfileRes = await fetch(`https://api.github.com/users/${randomUserFromList.login}`);
+              if (userProfileRes.ok) {
+                const userProfileData = await userProfileRes.json();
+                setUserData(userProfileData);
+                setUserName(userProfileData.login); // Update input field with the found user's login
+                setError(null);
+                foundUser = true;
+                break; // Exit retry loop
+              } else {
+                // Failed to fetch specific profile, log and continue to next retry if any
+                console.error(`Failed to fetch profile for ${randomUserFromList.login}`);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error during random user fetch attempt:", e);
+        // Continue to next retry if any
+      }
+    }
+
+    if (!foundUser) {
+      setError("Could not find a random user after 3 attempts. Please try again.");
+    }
+
+    setLoadingSuggestions(false);
+  };
+
   const hanldeOpenInGithub = ()=>{
     if(userData){
         window.open(userData.html_url,'_blank')
@@ -93,13 +139,20 @@ const UserFinder = () => {
           <button
             onClick={handleSearch}
             disabled={userName.trim() === '' || loadingSuggestions}
-            className="bg-blue-600 transition-all cursor-pointer w-1/2 hover:bg-blue-700 text-white px-2 py-1 rounded"
+            className="bg-blue-600 transition-all cursor-pointer w-1/3 hover:bg-blue-700 text-white px-2 py-1 rounded"
             >
             {loadingSuggestions ? 'Searching...' : 'Search'}
           </button>
           <button
+            onClick={handleRandomSearch}
+            disabled={loadingSuggestions}
+            className="bg-green-600 transition-all cursor-pointer w-1/3 hover:bg-green-700 text-white px-2 py-1 rounded"
+          >
+            {loadingSuggestions ? 'Feeling Lucky...' : 'Random User'}
+          </button>
+          <button
           onClick={handleReset}
-          className="bg-gray-500 hover:bg-gray-600 transition-all cursor-pointer w-1/2 text-white px-2 py-1 rounded"
+          className="bg-gray-500 hover:bg-gray-600 transition-all cursor-pointer w-1/3 text-white px-2 py-1 rounded"
           >
           Reset
         </button>
